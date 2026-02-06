@@ -2,6 +2,10 @@
 
 A Nagios monitoring plugin to check for available system updates on RHEL/CentOS and Debian/Ubuntu systems.
 
+# Usage
+`./check_updates.sh -w [Update WARNING] -c [Update CRITITAL] -s [Security Updates CRITICAL]`
+Defaults are -c 10 -w 4 -s 1
+
 ## Features
 
 - ✅ Detects available package updates
@@ -27,5 +31,5 @@ A Nagios monitoring plugin to check for available system updates on RHEL/CentOS 
 1. Copy the script to your Nagios plugins directory:
 ```bash
 sudo cp check_updates.sh /usr/local/nagios/scripts/
-sudo chmod +x /usr/local/nagios/scripts/check_updates.sh
+# sudo chmod +x /usr/local/nagios/scripts/check_updates.sh -> schript is executable by default
 sudo chown nagios:nagios /usr/local/nagios/scripts/check_updates.sh
