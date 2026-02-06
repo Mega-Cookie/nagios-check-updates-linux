@@ -1,16 +1,17 @@
-#!/bin/bash
+#! /usr/bin/env bash
 
-################################################################################
-#                                                                              #
-#  Nagios Check Updates Plugin                                                #
-#  Version: 1.0                                                               #
-#                                                                             #
-#  Description: Check for available system updates on RHEL and Debian         #
-#                                                                              #
-#  Usage: ./check_updates.sh [--rhel|--debian|--auto]                         #
-#  Exit codes: 0=OK, 1=WARNING, 2=CRITICAL, 3=UNKNOWN                         #
-#                                                                              #
-################################################################################
+#########################################################################################################
+#                                                                                                       #
+#  Nagios Check Updates Plugin                                                                          #
+#  Version: 1.0                                                                                         #
+#                                                                                                       #
+#  Forked from https://github.com/MesseFREEZE/nagios-check-updates-linux                                #
+#  Description: Check for available system updates on RHEL and Debian                                   #
+#                                                                                                       #
+#  Usage: ./check_updates.sh -w [Update WARNING] -c [Update CRITITAL] -s [Security Updates CRITICAL]    #
+#  Exit codes: 0=OK, 1=WARNING, 2=CRITICAL, 3=UNKNOWN                                                   #
+#                                                                                                       #
+#########################################################################################################
 
 # Strict error handling
 set -o pipefail
@@ -19,16 +20,20 @@ set -o pipefail
 # Configuration Section
 ################################################################################
 
-# Thresholds for updates
+# Thresholds for updates defaults
 WARNING_THRESHOLD=5      # Alert if more than 5 updates
 CRITICAL_THRESHOLD=10    # Critical if more than 10 updates
 SECURITY_CRITICAL=1      # Critical if any security updates
-
-# Colors for output (for testing)
-RED='\033[0;31m'
-YELLOW='\033[0;33m'
-GREEN='\033[0;32m'
-NC='\033[0m' # No Color
+# Set thresholds for updates
+while getopts w:c:s: OPTNAME; do
+	case "$OPTNAME" in
+	    w)  WARNING_THRESHOLD="$OPTARG";; # list of users
+        c)  CRITICAL_THRESHOLD="$OPTARG";; # get user list from teams name (monitoring or itsm)
+        s)  SECURITY_CRITICAL="$OPTARG";; # keep root access
+        *)  echo "Usage: ./check_updates.sh -w [Update WARNING] -c [Update CRITITAL] -s [Security Updates CRITICAL]"
+            exit 2
+    esac
+done
 
 ################################################################################
 # Function: Detect Linux Distribution
@@ -57,25 +62,51 @@ detect_distro() {
 ################################################################################
 check_rhel_updates() {
     # Check if dnf is available
+    status="OK"
     if ! command -v dnf &> /dev/null; then
-        echo "UNKNOWN"
-        echo "0"
-        echo "0"
+        status="UNKNOWN"
+        security="0"
+        updates="0"
+        securitylist="None"
+        updateslist="None"
+        export status
+        export updates
+        export security
+        export securitylist
+        export updateslist
         return
+    fi
+
+    # Count security updates specifically
+    # --security flag limits to security updates only
+    securitylist=$(dnf check-update --security --refresh -q 2>/dev/null | grep -v '^$' | tail -n +1)
+    if [ "$securitylist" != "" ]; then
+        security=$(echo "$securitylist" | wc -l)
+    else
+        security=0
     fi
 
     # Count total available updates
     # grep -v '^$' filters out empty lines
-    local updates=$(dnf check-update 2>/dev/null | grep -v '^$' | tail -n +2 | wc -l)
-
-    # Count security updates specifically
-    # --security flag limits to security updates only
-    local security=$(dnf check-update --security 2>/dev/null | grep -v '^$' | tail -n +2 | wc -l)
+    updateslist=$(dnf check-update --refresh -q 2>/dev/null | grep -v '^$' | tail -n +1)
+    if [ "$updateslist" != "" ]; then
+        updates=$(echo "$updateslist" | wc -l)
+    else
+        updates=0
+    fi
 
     # Return results
-    echo "OK"
-    echo "$updates"
-    echo "$security"
+    export status
+    export updates
+    export security
+    if [[ "$updateslist" == "$securitylist" ]]; then
+        updateslist="None"
+    fi
+    if [[ "$security" == 0 ]]; then
+        securitylist="None"
+    fi
+    export securitylist
+    export updateslist
 }
 
 ################################################################################
@@ -84,31 +115,57 @@ check_rhel_updates() {
 ################################################################################
 check_debian_updates() {
     # Check if apt is available
+    status="OK"
     if ! command -v apt &> /dev/null; then
-        echo "UNKNOWN"
-        echo "0"
-        echo "0"
+        status="UNKNOWN"
+        security="0"
+        updates="0"
+        securitylist="None"
+        updateslist="None"
+        export status
+        export updates
+        export security
+        export securitylist
+        export updateslist
         return
     fi
-
-    # Get all available updates (full count)
-    # apt list --upgradable returns format: pkg/distro version [upgrade-version]
-    # We grep for upgradable and exclude header
-    local updates=$(apt list --upgradable 2>/dev/null | grep -c upgradable || echo 0)
 
     # Get security updates specifically
     # apt list --upgradable | grep -i security filters security updates
     # This requires checking the changelog or using apt-get update && apt-get --dry-run upgrade
     # Fallback: count security package sources
-    local security=$(apt list --upgradable 2>/dev/null | grep -i "security\|ubuntu-security" | wc -l)
+    securitylist=$(apt list --upgradable 2>/dev/null | grep security | cut -d "/" -f 1)
+    if [ "$securitylist" != "" ]; then
+        security=$(echo "$securitylist" | wc -l)
+    else
+        security=0
+    fi
+
+    # Get all available updates (full count)
+    # apt list --upgradable returns format: pkg/distro version [upgrade-version]
+    # We grep for upgradable and exclude header
+    updateslist=$(apt list --upgradable 2>/dev/null | grep upgradable | cut -d "/" -f 1)
+    if [ "$updateslist" != "" ]; then
+        updates=$(echo "$updateslist" | wc -l)
+    else
+        updates=0
+    fi
 
     # Alternative: use apt show for each package (more accurate but slower)
     # For performance, we use the grep method above
 
     # Return results
-    echo "OK"
-    echo "$updates"
-    echo "$security"
+    export status
+    export updates
+    export security
+    if [[ "$updateslist" == "$securitylist" ]]; then
+        updateslist="None"
+    fi
+    if [[ "$security" == 0 ]]; then
+        securitylist="None"
+    fi
+    export securitylist
+    export updateslist
 }
 
 ################################################################################
@@ -117,15 +174,15 @@ check_debian_updates() {
 # Format: MESSAGE | perfdata
 ################################################################################
 generate_output() {
-    local status=$1
-    local updates=$2
-    local security=$3
+    status=$1
+    updates=$2
+    security=$3
 
     # Build main message
-    if [ "$status" = "rhel" ]; then
-        local message="Updates available: $updates"
+    if [ "$status" != "unknown" ]; then
+        message="Updates available: $updates"
     else
-        local message="$updates updates available"
+        message="Unknown Distro"
     fi
 
     # Add security info if present
@@ -136,7 +193,7 @@ generate_output() {
     # Build perfdata (format: label=value;warn;crit;min;max)
     # updates metric: warning at >5, critical at >10
     # security metric: critical at >1
-    local perfdata="updates=$updates;${WARNING_THRESHOLD};${CRITICAL_THRESHOLD};0;"
+    perfdata="updates=$updates;${WARNING_THRESHOLD};${CRITICAL_THRESHOLD};0;"
     perfdata="$perfdata security=$security;${SECURITY_CRITICAL};${SECURITY_CRITICAL};0;"
 
     # Output in Nagios format: MESSAGE | PERFDATA
@@ -149,21 +206,21 @@ generate_output() {
 # Returns: 0 (OK), 1 (WARNING), 2 (CRITICAL)
 ################################################################################
 determine_exit_code() {
-    local updates=$1
-    local security=$2
+    updates=$1
+    security=$2
 
     # Critical: if any security updates exist
-    if [ "$security" -gt "$SECURITY_CRITICAL" ]; then
+    if [ "$security" -ge "$SECURITY_CRITICAL" ]; then
         return 2
     fi
 
     # Critical: if too many updates
-    if [ "$updates" -gt "$CRITICAL_THRESHOLD" ]; then
+    if [ "$updates" -ge "$CRITICAL_THRESHOLD" ]; then
         return 2
     fi
 
     # Warning: if moderate number of updates
-    if [ "$updates" -gt "$WARNING_THRESHOLD" ]; then
+    if [ "$updates" -ge "$WARNING_THRESHOLD" ]; then
         return 1
     fi
 
@@ -175,24 +232,15 @@ determine_exit_code() {
 # Main Script
 ################################################################################
 
-# Get distribution mode from argument or auto-detect
-MODE="${1:-auto}"
-
 # Determine which check to run
-if [ "$MODE" = "--rhel" ] || ([ "$MODE" = "--auto" ] && [ "$(detect_distro)" = "rhel" ]); then
+if [ "$(detect_distro)" = "rhel" ]; then
     # Run RHEL check
-    result=$(check_rhel_updates)
-    status=$(echo "$result" | sed -n '1p')
-    updates=$(echo "$result" | sed -n '2p')
-    security=$(echo "$result" | sed -n '3p')
+    check_rhel_updates
 
-elif [ "$MODE" = "--debian" ] || ([ "$MODE" = "--auto" ] && [ "$(detect_distro)" = "debian" ]); then
+
+elif [ "$(detect_distro)" = "debian" ]; then
     # Run Debian check
-    result=$(check_debian_updates)
-    status=$(echo "$result" | sed -n '1p')
-    updates=$(echo "$result" | sed -n '2p')
-    security=$(echo "$result" | sed -n '3p')
-
+    check_debian_updates
 else
     # Unknown distribution
     echo "UNKNOWN - Cannot detect distribution or unsupported OS"
@@ -205,9 +253,18 @@ if [ "$status" != "OK" ]; then
     exit 3
 fi
 
-# Generate Nagios output
-generate_output "$(detect_distro)" "$updates" "$security"
+if [ -f /var/run/reboot-required ]; then
+    echo "For some updates to take effect a reboot is required!"
+    exit 2
+else
+    # Generate Nagios output
+    generate_output "$(detect_distro)" "$updates" "$security"
+    echo "Available Security Update:"
+    echo "$securitylist"
+    echo "Available Normal Updates:"
+    echo "$updateslist"
 
-# Determine and exit with appropriate code
-determine_exit_code "$updates" "$security"
-exit $?
+    # Determine and exit with appropriate code
+    determine_exit_code "$updates" "$security"
+    exit $?
+fi
