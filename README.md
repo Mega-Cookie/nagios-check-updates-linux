@@ -4,7 +4,8 @@ A Nagios monitoring plugin to check for available system updates on RHEL/CentOS 
 
 # Usage
 `./check_updates.sh -w [Update WARNING] -c [Update CRITITAL] -s [Security Updates CRITICAL]`
-Defaults are -c 10 -w 4 -s 1
+
+Defaults are -c 10 -w 5 -s 1
 
 ## Features
 

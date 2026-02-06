@@ -27,9 +27,9 @@ SECURITY_CRITICAL=1      # Critical if any security updates
 # Set thresholds for updates
 while getopts w:c:s: OPTNAME; do
 	case "$OPTNAME" in
-	    w)  WARNING_THRESHOLD="$OPTARG";; # list of users
-        c)  CRITICAL_THRESHOLD="$OPTARG";; # get user list from teams name (monitoring or itsm)
-        s)  SECURITY_CRITICAL="$OPTARG";; # keep root access
+	    w)  WARNING_THRESHOLD="$OPTARG";;
+        c)  CRITICAL_THRESHOLD="$OPTARG";;
+        s)  SECURITY_CRITICAL="$OPTARG";;
         *)  echo "Usage: ./check_updates.sh -w [Update WARNING] -c [Update CRITITAL] -s [Security Updates CRITICAL]"
             exit 2
     esac
