@@ -1,5 +1,4 @@
 #! /usr/bin/env bash
-
 #########################################################################################################
 #                                                                                                       #
 #  Nagios Check Updates Plugin                                                                          #
@@ -55,15 +54,14 @@ detect_distro() {
 
     echo "unknown"
 }
-
 ################################################################################
-# Function: Check RHEL/CentOS Updates (using DNF)
+# Function: Check Debian/Ubuntu Updates (using APT) or RHEL Updates (using DNF)
 # Returns: updates count and security updates count
 ################################################################################
-check_rhel_updates() {
-    # Check if dnf is available
+check_updates() {
+    # Check if dnf or apt is available
     status="OK"
-    if ! command -v dnf &> /dev/null; then
+    if ! command -v dnf &> /dev/null && ! command -v apt &> /dev/null; then
         status="UNKNOWN"
         security="0"
         updates="0"
@@ -77,82 +75,27 @@ check_rhel_updates() {
         return
     fi
 
-    # Count security updates specifically
-    # --security flag limits to security updates only
-    securitylist=$(dnf check-update --security --refresh -q 2>/dev/null | grep -v '^$' | tail -n +1)
-    if [ "$securitylist" != "" ]; then
-        security=$(echo "$securitylist" | wc -l)
-    else
-        security=0
-    fi
-
-    # Count total available updates
-    # grep -v '^$' filters out empty lines
-    updateslist=$(dnf check-update --refresh -q 2>/dev/null | grep -v '^$' | tail -n +1)
-    if [ "$updateslist" != "" ]; then
-        updates=$(echo "$updateslist" | wc -l)
-    else
-        updates=0
-    fi
-
-    # Return results
-    export status
-    export updates
-    export security
-    if [[ "$updateslist" == "$securitylist" ]]; then
-        updateslist="None"
-    fi
-    if [[ "$security" == 0 ]]; then
-        securitylist="None"
-    fi
-    export securitylist
-    export updateslist
-}
-
-################################################################################
-# Function: Check Debian/Ubuntu Updates (using APT)
-# Returns: updates count and security updates count
-################################################################################
-check_debian_updates() {
-    # Check if apt is available
-    status="OK"
-    if ! command -v apt &> /dev/null; then
-        status="UNKNOWN"
-        security="0"
-        updates="0"
-        securitylist="None"
-        updateslist="None"
-        export status
-        export updates
-        export security
-        export securitylist
-        export updateslist
-        return
-    fi
-
-    # Get security updates specifically
-    # apt list --upgradable | grep -i security filters security updates
-    # This requires checking the changelog or using apt-get update && apt-get --dry-run upgrade
-    # Fallback: count security package sources
-    securitylist=$(apt list --upgradable 2>/dev/null | grep security | cut -d "/" -f 1)
-    if [ "$securitylist" != "" ]; then
-        security=$(echo "$securitylist" | wc -l)
-    else
-        security=0
-    fi
-
-    # Get all available updates (full count)
     # apt list --upgradable returns format: pkg/distro version [upgrade-version]
-    # We grep for upgradable and exclude header
-    updateslist=$(apt list --upgradable 2>/dev/null | grep upgradable | cut -d "/" -f 1)
+    # We grep for upgradable and strip everything except the package name
+    if [ "$(detect_distro)" = "debian" ]; then
+        securitylist=$(apt list --upgradable 2>/dev/null | grep security | cut -d "/" -f 1)
+        updateslist=$(apt list --upgradable 2>/dev/null | grep upgradable | cut -d "/" -f 1)
+    elif [ "$(detect_distro)" = "rhel" ]; then
+        securitylist=$(dnf check-update --security --refresh -q 2>/dev/null | grep -v '^$' | tail -n +1)
+        updateslist=$(dnf check-update --refresh -q 2>/dev/null | grep -v '^$' | tail -n +1)
+    fi
+    
+    # Count available updates
+    if [ "$securitylist" != "" ]; then
+        security=$(echo "$securitylist" | wc -l)
+    else
+        security=0
+    fi
     if [ "$updateslist" != "" ]; then
         updates=$(echo "$updateslist" | wc -l)
     else
         updates=0
     fi
-
-    # Alternative: use apt show for each package (more accurate but slower)
-    # For performance, we use the grep method above
 
     # Return results
     export status
@@ -191,8 +134,8 @@ generate_output() {
     fi
 
     # Build perfdata (format: label=value;warn;crit;min;max)
-    # updates metric: warning at >5, critical at >10
-    # security metric: critical at >1
+    # updates metric: warning at >=5, critical at >=10
+    # security metric: critical at >=1
     perfdata="updates=$updates;${WARNING_THRESHOLD};${CRITICAL_THRESHOLD};0;"
     perfdata="$perfdata security=$security;${SECURITY_CRITICAL};${SECURITY_CRITICAL};0;"
 
@@ -232,20 +175,8 @@ determine_exit_code() {
 # Main Script
 ################################################################################
 
-# Determine which check to run
-if [ "$(detect_distro)" = "rhel" ]; then
-    # Run RHEL check
-    check_rhel_updates
-
-
-elif [ "$(detect_distro)" = "debian" ]; then
-    # Run Debian check
-    check_debian_updates
-else
-    # Unknown distribution
-    echo "UNKNOWN - Cannot detect distribution or unsupported OS"
-    exit 3
-fi
+# Run Check
+check_updates
 
 # Check if we got valid results
 if [ "$status" != "OK" ]; then
@@ -259,6 +190,7 @@ if [ -f /var/run/reboot-required ]; then
 else
     # Generate Nagios output
     generate_output "$(detect_distro)" "$updates" "$security"
+    # Add long plugin output
     echo "Available Security Update:"
     echo "$securitylist"
     echo "Available Normal Updates:"
