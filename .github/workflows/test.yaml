@@ -1,0 +1,42 @@
+name: Nagios Plugin Validation
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    name: Lint & ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Prüft auf Bash-Syntaxfehler und Best Practices
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: './' # Pfad zu Ihren Skripten
+
+  test-exit-codes:
+    name: Test Nagios Exit Status
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Manuelle Simulation von Plugin-Ergebnissen
+      - name: Verify Plugin Return Codes
+        run: |      
+          # Teste OK Status (Erwartet 0)
+          ./check_uodates.sh -t OK
+          if [ $? -ne 0 ]; then echo "Fehler: Erwartete 0 für OK"; exit 1; fi
+          
+          # Teste Critical Status (Erwartet 2)
+          ./check_uodates.sh -t WARN
+          if [ $? -ne 2 ]; then echo "Fehler: Erwartete 2 für CRITICAL"; exit 1;
+          
+          # Teste Critical Status (Erwartet 2)
+          ./check_uodates.sh -t CRIT
+          if [ $? -ne 2 ]; then echo "Fehler: Erwartete 2 für CRITICAL"; exit 1;
+
+          # Teste Critical Status (Erwartet 2)
+          ./check_uodates.sh -t CRITSEC
+          if [ $? -ne 2 ]; then echo "Fehler: Erwartete 2 für CRITICAL"; exit 1;

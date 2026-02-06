@@ -23,12 +23,14 @@ set -o pipefail
 WARNING_THRESHOLD=5      # Alert if more than 5 updates
 CRITICAL_THRESHOLD=10    # Critical if more than 10 updates
 SECURITY_CRITICAL=1      # Critical if any security updates
+TESTING="false"
 # Set thresholds for updates
-while getopts w:c:s: OPTNAME; do
+while getopts w:c:s:t: OPTNAME; do
 	case "$OPTNAME" in
 	    w)  WARNING_THRESHOLD="$OPTARG";;
         c)  CRITICAL_THRESHOLD="$OPTARG";;
         s)  SECURITY_CRITICAL="$OPTARG";;
+        t)  TESTING="$OPTARG";;
         *)  echo "Usage: ./check_updates.sh -w [Update WARNING] -c [Update CRITITAL] -s [Security Updates CRITICAL]"
             exit 2
     esac
@@ -172,6 +174,39 @@ determine_exit_code() {
 }
 
 ################################################################################
+# Test
+################################################################################
+determine_exit_code() {
+if [ "$TESTING" != "FALSE" ]; then
+    if [ "$TESTING" == "OK" ]; then
+        updates=0
+        security=0
+        updateslist="OK TEST PASSED"
+        securitylist="NONE"
+    elif [ "$TESTING" == "WARN" ]; then
+        updates=5
+        security=0
+        updateslist="WARN TEST PASSED"
+        securitylist="NONE"
+    elif [ "$TESTING" != "CRIT" ]; then
+        updates=20
+        security=
+        updateslist="CRIT TEST PASSED"
+        securitylist="NONE"
+    elif [ "$TESTING" != "CRITSEC" ]; then
+        updates=1
+        security=1
+        updateslist="NONE"
+        securitylist="CRITSEC TEST PASSED"
+    fi
+    export updates
+    export security
+    export securitylist
+    export updateslist
+fi
+}
+
+################################################################################
 # Main Script
 ################################################################################
 
@@ -183,6 +218,8 @@ if [ "$status" != "OK" ]; then
     echo "UNKNOWN - Failed to check updates"
     exit 3
 fi
+
+istest
 
 if [ -f /var/run/reboot-required ]; then
     echo "For some updates to take effect a reboot is required!"
