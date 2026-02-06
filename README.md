@@ -2,6 +2,13 @@
 
 A Nagios monitoring plugin to check for available system updates on RHEL/CentOS and Debian/Ubuntu systems.
 
+This was forked from
+[MesseFREEZE/nagios-check-updates-linux](https://github.com/MesseFREEZE/nagios-check-updates-linux)
+- added input arguments for warning and critical.
+- autodetection is forced
+- added list of available updates as long plugin output
+- Unify update check function to a single function for both Debian and RHEL systems
+
 # Usage
 `./check_updates.sh -w [Update WARNING] -c [Update CRITITAL] -s [Security Updates CRITICAL]`
 
