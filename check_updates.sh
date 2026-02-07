@@ -154,72 +154,69 @@ determine_exit_code() {
     updates=$1
     security=$2
 
+    # OK: system is up to date
+    state=0
+
     # Critical: if any security updates exist
     if [ "$security" -ge "$SECURITY_CRITICAL" ]; then
-        return 2
+        state=2
     fi
 
     # Critical: if too many updates
     if [ "$updates" -ge "$CRITICAL_THRESHOLD" ]; then
-        return 2
+        state=2
+    elif [ "$updates" -ge "$WARNING_THRESHOLD" ]; then
+        state=1
     fi
 
-    # Warning: if moderate number of updates
-    if [ "$updates" -ge "$WARNING_THRESHOLD" ]; then
-        return 1
-    fi
-
-    # OK: system is up to date
-    return 0
+    echo "$state"
 }
 
 ################################################################################
 # Test
 ################################################################################
-determine_exit_code() {
-if [ "$TESTING" != "FALSE" ]; then
-    if [ "$TESTING" == "OK" ]; then
-        updates=0
-        security=0
-        updateslist="OK TEST PASSED"
-        securitylist="NONE"
-    elif [ "$TESTING" == "WARN" ]; then
-        updates=5
-        security=0
-        updateslist="WARN TEST PASSED"
-        securitylist="NONE"
-    elif [ "$TESTING" != "CRIT" ]; then
-        updates=20
-        security=
-        updateslist="CRIT TEST PASSED"
-        securitylist="NONE"
-    elif [ "$TESTING" != "CRITSEC" ]; then
-        updates=1
-        security=1
-        updateslist="NONE"
-        securitylist="CRITSEC TEST PASSED"
+istest() {
+    test=$1
+    if [ "$test" != "false" ]; then
+        if [ "$test" == "OK" ]; then
+            updates=0
+            security=0
+            updateslist="OK TEST PASSED"
+            securitylist="NONE"
+        elif [ "$test" == "WARN" ]; then
+            updates=5
+            security=0
+            updateslist="WARN TEST PASSED"
+            securitylist="NONE"
+        elif [ "$test" == "CRIT" ]; then
+            updates=20
+            security=0
+            updateslist="CRIT TEST PASSED"
+            securitylist="NONE"
+        elif [ "$test" == "CRITSEC" ]; then
+            updates=1
+            security=1
+            updateslist="NONE"
+            securitylist="CRITSEC TEST PASSED"
+        fi
+        export updates
+        export security
+        export securitylist
+        export updateslist
     fi
-    export updates
-    export security
-    export securitylist
-    export updateslist
-fi
 }
 
 ################################################################################
 # Main Script
 ################################################################################
-
 # Run Check
 check_updates
-
 # Check if we got valid results
 if [ "$status" != "OK" ]; then
     echo "UNKNOWN - Failed to check updates"
     exit 3
 fi
-
-istest
+istest "$TESTING"
 
 if [ -f /var/run/reboot-required ]; then
     echo "For some updates to take effect a reboot is required!"
@@ -234,6 +231,6 @@ else
     echo "$updateslist"
 
     # Determine and exit with appropriate code
-    determine_exit_code "$updates" "$security"
-    exit $?
+    state=$(determine_exit_code "$updates" "$security")
+    exit "$state"
 fi

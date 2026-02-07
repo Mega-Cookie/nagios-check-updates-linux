@@ -1,6 +1,6 @@
 name: Nagios Plugin Validation
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   lint:
@@ -24,19 +24,24 @@ jobs:
       
       # Manuelle Simulation von Plugin-Ergebnissen
       - name: Verify Plugin Return Codes
-        run: |      
+        run: |
+
+          set +e
+
+          chmod +x check_updates.sh
+
           # Teste OK Status (Erwartet 0)
-          ./check_uodates.sh -t OK
-          if [ $? -ne 0 ]; then echo "Fehler: Erwartete 0 für OK"; exit 1; fi
+          ./check_updates.sh -t OK
+          if [ $? -ne 0 ]; then echo "Fehler: Erwartete 0 für OK"; exit 1; else echo "OK PASSED"; fi
+          
+          # Teste Warning Status (Erwartet 1)
+          ./check_updates.sh -t WARN
+          if [ $? -ne 1 ]; then echo "Fehler: Erwartete 1 für WARNING"; exit 1; else echo "WARN PASSED"; fi
           
           # Teste Critical Status (Erwartet 2)
-          ./check_uodates.sh -t WARN
-          if [ $? -ne 2 ]; then echo "Fehler: Erwartete 2 für CRITICAL"; exit 1;
-          
-          # Teste Critical Status (Erwartet 2)
-          ./check_uodates.sh -t CRIT
-          if [ $? -ne 2 ]; then echo "Fehler: Erwartete 2 für CRITICAL"; exit 1;
+          ./check_updates.sh -t CRIT
+          if [ $? -ne 2 ]; then echo "Fehler: Erwartete 2 für CRITICAL"; exit 1; else echo "CRIT PASSED"; fi
 
           # Teste Critical Status (Erwartet 2)
-          ./check_uodates.sh -t CRITSEC
-          if [ $? -ne 2 ]; then echo "Fehler: Erwartete 2 für CRITICAL"; exit 1;
+          ./check_updates.sh -t CRITSEC
+          if [ $? -ne 2 ]; then echo "Fehler: Erwartete 2 für CRITICAL"; exit 1; else echo "CRITSEC PASSED"; fi
