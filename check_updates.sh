@@ -83,8 +83,8 @@ check_updates() {
         securitylist=$(apt list --upgradable 2>/dev/null | grep security | cut -d "/" -f 1)
         updateslist=$(apt list --upgradable 2>/dev/null | grep upgradable | cut -d "/" -f 1)
     elif [ "$(detect_distro)" = "rhel" ]; then
-        securitylist=$(dnf check-update --security --refresh -q 2>/dev/null | grep -v '^$' | tail -n +1)
-        updateslist=$(dnf check-update --refresh -q 2>/dev/null | grep -v '^$' | tail -n +1)
+        securitylist=$(dnf check-update --security --refresh -q 2>/dev/null | grep -v '^$' | tail -n +1 | cut -d " " -f 1)
+        updateslist=$(dnf check-update --refresh -q 2>/dev/null | grep -v '^$' | tail -n +1 | cut -d " " -f 1)
     fi
     
     # Count available updates
@@ -102,7 +102,7 @@ check_updates() {
     if [[ "$updateslist" == "$securitylist" ]]; then
         updateslist="None"
     else
-        non_securitylist=$(grep -vFxf <(echo "$securitylist") <(echo "$updateslist"))
+        non_securitylist=$(awk 'NR==FNR {seen[$0]=1; next} !seen[$0]' <(echo "$securitylist") <(echo "$updateslist"))
 
     fi
     if [[ "$security" == 0 ]]; then
