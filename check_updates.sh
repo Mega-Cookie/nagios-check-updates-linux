@@ -1,16 +1,22 @@
 #! /usr/bin/env bash
-#########################################################################################################
-#                                                                                                       #
-#  Nagios Check Updates Plugin                                                                          #
-#  Version: 1.0                                                                                         #
-#                                                                                                       #
-#  Forked from https://github.com/MesseFREEZE/nagios-check-updates-linux                                #
-#  Description: Check for available system updates on RHEL and Debian                                   #
-#                                                                                                       #
-#  Usage: ./check_updates.sh -w [Update WARNING] -c [Update CRITITAL] -s [Security Updates CRITICAL]    #
-#  Exit codes: 0=OK, 1=WARNING, 2=CRITICAL, 3=UNKNOWN                                                   #
-#                                                                                                       #
-#########################################################################################################
+#################################################################################
+#                                                                               #
+#   Nagios Check Updates Plugin                                                 #
+#   Version: 1.0                                                                #
+#                                                                               #
+#   Forked from https://github.com/MesseFREEZE/nagios-check-updates-linux       #
+#   Description: Check for available system updates on RHEL and Debian          #
+#                                                                               #
+#   Usage: ./check_updates.sh                                                   #
+#                                   -w [Update WARNING]                         #
+#                                   -c [Update CRITITAL]                        #
+#                                   -s [Security Updates CRITICAL]              #
+#                                   -t [TESTCASES [OK, WARN, CRIT, CRITSEC]]    #
+#                                   -h Print this help text                     #
+#                                                                               #
+#         Exit codes: 0=OK, 1=WARNING, 2=CRITICAL, 3=UNKNOWN                    #
+#                                                                               #
+#################################################################################
 
 # Strict error handling
 set -o pipefail
@@ -18,6 +24,17 @@ set -o pipefail
 ################################################################################
 # Configuration Section
 ################################################################################
+# Print Help
+help() {
+    echo "Usage: ./check_updates.sh 
+                                    -w [Update WARNING]
+                                    -c [Update CRITITAL]
+                                    -s [Security Updates CRITICAL]
+                                    -t [TESTCASES [OK, WARN, CRIT, CRITSEC]]
+            
+          Exit codes: 0=OK, 1=WARNING, 2=CRITICAL, 3=UNKNOWN"
+}
+
 
 # Thresholds for updates defaults
 WARNING_THRESHOLD=5      # Alert if more than 5 updates
@@ -25,13 +42,14 @@ CRITICAL_THRESHOLD=10    # Critical if more than 10 updates
 SECURITY_CRITICAL=1      # Critical if any security updates
 TESTING="false"
 # Set thresholds for updates
-while getopts w:c:s:t: OPTNAME; do
+while getopts w:c:s:t:h OPTNAME; do
 	case "$OPTNAME" in
 	    w)  WARNING_THRESHOLD="$OPTARG";;
         c)  CRITICAL_THRESHOLD="$OPTARG";;
         s)  SECURITY_CRITICAL="$OPTARG";;
         t)  TESTING="$OPTARG";;
-        *)  echo "Usage: ./check_updates.sh -w [Update WARNING] -c [Update CRITITAL] -s [Security Updates CRITICAL]"
+        h)  help;;
+        *)  help
             exit 2
     esac
 done
