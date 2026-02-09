@@ -68,12 +68,12 @@ check_updates() {
         security="0"
         updates="0"
         securitylist="None"
-        updateslist="None"
+        non_securitylist="None"
         export status
         export updates
         export security
         export securitylist
-        export updateslist
+        export non_securitylist
         return
     fi
 
@@ -99,18 +99,22 @@ check_updates() {
         updates=0
     fi
 
-    # Return results
-    export status
-    export updates
-    export security
     if [[ "$updateslist" == "$securitylist" ]]; then
         updateslist="None"
+    else
+        non_securitylist=$(grep -vFxf <(echo "$securitylist") <(echo "$updateslist"))
+
     fi
     if [[ "$security" == 0 ]]; then
         securitylist="None"
     fi
+
+    # Return results
+    export status
+    export updates
+    export security
     export securitylist
-    export updateslist
+    export non_securitylist
 }
 
 ################################################################################
@@ -181,29 +185,50 @@ istest() {
         if [ "$test" == "OK" ]; then
             updates=0
             security=0
-            updateslist="OK TEST PASSED"
+            non_securitylist="OK TEST PASSED"
             securitylist="NONE"
         elif [ "$test" == "WARN" ]; then
             updates=5
             security=0
-            updateslist="WARN TEST PASSED"
+            non_securitylist="WARN TEST PASSED"
             securitylist="NONE"
         elif [ "$test" == "CRIT" ]; then
             updates=20
             security=0
-            updateslist="CRIT TEST PASSED"
+            non_securitylist="CRIT TEST PASSED"
             securitylist="NONE"
         elif [ "$test" == "CRITSEC" ]; then
             updates=1
             security=1
-            updateslist="NONE"
+            non_securitylist="NONE"
             securitylist="CRITSEC TEST PASSED"
         fi
         export updates
         export security
         export securitylist
-        export updateslist
+        export non_securitylist
     fi
+}
+
+################################################################################
+# Reboot Check
+################################################################################
+check_reboot() {
+    distro=$1
+    reboot=0
+    if [ "$distro" == "debian" ]; then
+        if [ -f /var/run/reboot-required ]; then
+            reboot=1 
+        fi
+    elif [ "$distro" == "rhel" ]; then
+        if [[ "$(dnf needs-restarting -q)" ]]; then
+            reboot=1
+        fi
+    else
+        echo "Could not determine OS Derivate!"
+        exit 2
+    fi
+    echo "$reboot"
 }
 
 ################################################################################
@@ -218,7 +243,7 @@ if [ "$status" != "OK" ]; then
 fi
 istest "$TESTING"
 
-if [ -f /var/run/reboot-required ]; then
+if [ "$(check_reboot "$(detect_distro)")" == 1 ]; then
     echo "For some updates to take effect a reboot is required!"
     exit 2
 else
@@ -228,7 +253,7 @@ else
     echo "Available Security Update:"
     echo "$securitylist"
     echo "Available Normal Updates:"
-    echo "$updateslist"
+    echo "$non_securitylist"
 
     # Determine and exit with appropriate code
     state=$(determine_exit_code "$updates" "$security")
