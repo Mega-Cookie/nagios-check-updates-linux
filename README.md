@@ -8,10 +8,20 @@ This was forked from
 - autodetection is forced
 - added list of available updates as long plugin output
 - Unify update check function to a single function for both Debian and RHEL systems
+- Added check for required restart
+- added github actions test conditions
 
 # Usage
-`./check_updates.sh -w [Update WARNING] -c [Update CRITITAL] -s [Security Updates CRITICAL]`
-
+```
+   Usage: ./check_updates.sh                                                   
+                                   -w [Update WARNING]                         
+                                   -c [Update CRITITAL]                        
+                                   -s [Security Updates CRITICAL]              
+                                   -t [TESTCASES [OK, WARN, CRIT, CRITSEC]]    
+                                   -h Print this help text                     
+                                                                               
+         Exit codes: 0=OK, 1=WARNING, 2=CRITICAL, 3=UNKNOWN 
+```
 Defaults are -c 10 -w 5 -s 1
 
 ## Features
