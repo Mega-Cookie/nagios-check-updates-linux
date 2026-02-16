@@ -118,7 +118,7 @@ check_updates() {
     fi
 
     if [[ "$updateslist" == "$securitylist" ]]; then
-        updateslist="None"
+        non_securitylist="None"
     else
         non_securitylist=$(awk 'NR==FNR {seen[$0]=1; next} !seen[$0]' <(echo "$securitylist") <(echo "$updateslist"))
 
