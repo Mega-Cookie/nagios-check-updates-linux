@@ -118,7 +118,7 @@ check_updates() {
     fi
 
     if [[ "$updateslist" == "$securitylist" ]]; then
-        updateslist="None"
+        non_securitylist="None"
     else
         non_securitylist=$(awk 'NR==FNR {seen[$0]=1; next} !seen[$0]' <(echo "$securitylist") <(echo "$updateslist"))
 
@@ -236,11 +236,11 @@ check_reboot() {
     reboot=0
     if [ "$distro" == "debian" ]; then
         if [ -f /var/run/reboot-required ]; then
-            reboot=1 
+            reboot=$?
         fi
     elif [ "$distro" == "rhel" ]; then
-        if [[ "$(dnf needs-restarting -q)" ]]; then
-            reboot=1
+        if [[ "$(dnf needs-restarting -r)" ]]; then
+            reboot=$?
         fi
     else
         echo "Could not determine OS Derivate!"
