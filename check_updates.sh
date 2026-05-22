@@ -231,16 +231,17 @@ istest() {
 ################################################################################
 # Reboot Check
 ################################################################################
+# shellcheck disable=2319
 check_reboot() {
     distro=$1
     reboot=0
     if [ "$distro" == "debian" ]; then
         if [ -f /var/run/reboot-required ]; then
-            reboot=1 
+            reboot=$?
         fi
     elif [ "$distro" == "rhel" ]; then
-        if [[ "$(dnf needs-restarting -q)" ]]; then
-            reboot=1
+        if [[ "$(dnf needs-restarting -r)" ]]; then
+            reboot=$?
         fi
     else
         echo "Could not determine OS Derivate!"
